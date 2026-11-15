@@ -1,0 +1,34 @@
+# Merge this service into /opt/zecurx-infra/docker-compose.yml.
+# It intentionally has no host port mapping: only Nginx on zecurx-shared should reach it.
+services:
+  academy-api:
+    build:
+      context: ./academy-api
+      dockerfile: Dockerfile
+    container_name: zecurx-academy-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: "8080"
+      POSTGRES_HOST: zecurx-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ACADEMY_API_TOKEN: ${ACADEMY_API_TOKEN}
+    expose:
+      - "8080"
+    networks:
+      - zecurx-shared
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  zecurx-shared:
+    external: true
+    name: zecurx-shared
