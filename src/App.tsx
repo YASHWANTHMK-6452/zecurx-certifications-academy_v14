@@ -197,6 +197,17 @@ const courses = [
   },
 ];
 
+type AcademyCourseRecord = {
+  id?: string;
+  courseCode?: string;
+  code?: string;
+  title?: string;
+  description?: string;
+  shortDescription?: string;
+  level?: string;
+  duration?: string | number;
+};
+
 type Review = { name: string; role: string; rating: number; date: string; text: string };
 type ReviewStats = { count: number; average: number; distribution: number[] };
 const MAX_VISIBLE_REVIEWS = 10;
@@ -1283,6 +1294,7 @@ export default function App() {
   const [expandedFeature, setExpandedFeature] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const [route, setRoute] = useState<Route>(parseRoute);
+  const [catalogCourses, setCatalogCourses] = useState(courses);
   const [reviewsByCourse, setReviewsByCourse] = useState<Record<string, Review[]>>({});
   const [statsByCourse, setStatsByCourse] = useState<Record<string, ReviewStats>>({});
 
@@ -1323,7 +1335,36 @@ export default function App() {
     window.setTimeout(() => document.querySelector(`[data-course="${code}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 180);
   };
 
-  const routeCourse = courses.find((course) => course.code === route.code);
+  const routeCourse = catalogCourses.find((course) => course.code === route.code);
+
+  // The database supplies catalogue copy only. Prices and checkout remain in the existing
+  // payment implementation and are deliberately not overwritten by this endpoint.
+  useEffect(() => {
+    let active = true;
+    fetch("/api/academy-courses")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { courses?: AcademyCourseRecord[] } | null) => {
+        if (!active || !Array.isArray(payload?.courses)) return;
+        const records = new Map(
+          payload.courses
+            .map((record) => [record.courseCode || record.code || "", record] as const)
+            .filter(([code]) => Boolean(code)),
+        );
+        setCatalogCourses(courses.map((course) => {
+          const record = records.get(course.code);
+          if (!record) return course;
+          return {
+            ...course,
+            title: record.title || course.title,
+            description: record.shortDescription || record.description || course.description,
+            level: record.level || course.level,
+            duration: record.duration ? String(record.duration) : course.duration,
+          };
+        }));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   // Verified reviews come from the backend (only certificate holders can post).
   useEffect(() => {
@@ -1504,7 +1545,7 @@ export default function App() {
             <p>Focused programs designed around the skills security teams actually use—guided by practitioners, proven in live environments.</p>
           </div>
           <div className="course-grid">
-            {courses.map((course, index) => (
+            {catalogCourses.map((course, index) => (
               <div
                 className={`course-card reveal course-card-click ${recommendedCourse === course.code ? "recommended" : ""}`}
                 key={course.code}
