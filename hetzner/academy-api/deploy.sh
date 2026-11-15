@@ -40,7 +40,7 @@ docker compose -f "$COMPOSE" config --quiet || fail "Existing Docker Compose con
 ok "Existing Docker Compose configuration parses."
 
 # Check actual course schema and print only column names, never row data.
-docker exec zecurx-postgres sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT column_name FROM information_schema.columns WHERE table_schema = '''public''' AND table_name = '''courses''' ORDER BY ordinal_position"' > /tmp/zecurx-academy-course-columns.txt   || fail "Could not inspect public.courses using the existing PostgreSQL container credentials."
+docker exec zecurx-postgres sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT column_name FROM information_schema.columns WHERE table_schema = $public$ AND table_name = $courses$ ORDER BY ordinal_position"' > /tmp/zecurx-academy-course-columns.txt   || fail "Could not inspect public.courses using the existing PostgreSQL container credentials."
 
 if [[ ! -s /tmp/zecurx-academy-course-columns.txt ]]; then
   fail "public.courses was not found or has no visible columns."
