@@ -13,32 +13,35 @@ This service is designed to run beside the existing PostgreSQL container on the 
 
 ## Required environment
 
-Use the existing Compose environment file for the database credentials, plus a newly generated random `ACADEMY_API_TOKEN` (at least 32 characters). Never commit the token or database credentials.
+Use a dedicated PostgreSQL account with SELECT access only to `public.courses`. Configure these server-only variables in the existing Compose environment file:
+
+- `ACADEMY_DB_USER`
+- `ACADEMY_DB_PASSWORD`
+- `ACADEMY_API_TOKEN` (random, at least 32 characters)
+
+Never reuse the PostgreSQL superuser/LMS owner credentials for this service. Never commit secrets.
 
 The service defaults to database host `zecurx-postgres`, port `5432`, and database `zecurx_platform`. These can be overridden with `POSTGRES_HOST`, `POSTGRES_PORT`, and `POSTGRES_DB`.
 
 ## Deployment note
 
-The current infrastructure Compose file lives on the server at `/opt/zecurx-infra/docker-compose.yml` and is not maintained in this website repository. Add this service there with:
+The current infrastructure Compose file lives on the server at `/opt/zecurx-infra/docker-compose.yml` and is not maintained in this website repository. Add the service from `compose.service.yml` there after copying this directory to `/opt/zecurx-infra/academy-api`.
 
-- build context pointing to this directory after the files are copied to the server;
-- `env_file: .env`;
-- `POSTGRES_HOST=zecurx-postgres`;
-- `ACADEMY_API_TOKEN` supplied as a secret environment variable;
-- `networks: [zecurx-shared]`;
-- no `ports:` mapping.
+The service joins the existing `zecurx-shared` Docker network and has no public `ports:` mapping. Keep it private behind Nginx; do not expose port 8080 or PostgreSQL port 5432 directly.
 
-Do not deploy until the existing Nginx virtual-host configuration has been reviewed and an HTTPS-only route to this service has been added. Keep the API private behind Nginx; do not expose port 8080 or PostgreSQL port 5432 directly.
+## HTTPS and Nginx
+
+The API hostname is `api.zecurx.com`. Obtain its certificate with the existing Certbot setup, then add the location snippet from `nginx-location.example.conf` to the matching HTTPS server block. Review the actual live Nginx configuration first and preserve all existing virtual hosts. Validate the Nginx configuration before reloading it.
 
 ## Vercel
 
-Configure these server-side environment variables only after the HTTPS route is deployed:
+After the HTTPS route and API service are deployed, configure these server-side environment variables:
 
-- `ACADEMY_API_URL=https://<your-api-host>/v1/courses`
+- `ACADEMY_API_URL=https://api.zecurx.com/academy-api/v1/courses`
 - `ACADEMY_API_TOKEN=<same random token>`
 
 The Vercel route at `/api/academy-courses` proxies the request server-to-server. Do not use `VITE_` or `NEXT_PUBLIC_` prefixes for either secret.
 
 ## Important schema check
 
-The service currently expects `public.courses` to have `status` and optional `isPublic` JSON fields and returns only the public allowlist listed in `server.js`. Confirm actual production values/columns before deployment. No production database migration is required.
+The service currently expects `public.courses` to have `status` and optional `isPublic` JSON fields. The frontend currently matches database records by `courseCode` or `code` against seven existing catalogue codes. Confirm the actual production column names, values, and rows before deployment. No production database migration is intended.
