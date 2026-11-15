@@ -1,0 +1,33 @@
+# Redis database + an HTTPS "REST door" in front of it, for Vercel to talk to.
+# Only Caddy (ports 80/443) is reachable from the internet. Redis itself is private.
+services:
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]   # keeps data on disk
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  srh:   # Serverless Redis HTTP: speaks the same REST language as Upstash
+    image: hiett/serverless-redis-http:latest
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN}
+      SRH_CONNECTION_STRING: redis://redis:6379
+    depends_on: [redis]
+    restart: unless-stopped
+
+  caddy: # HTTPS (free certificate) + forwards requests to srh
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [srh]
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  caddy-data:

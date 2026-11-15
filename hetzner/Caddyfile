@@ -1,0 +1,4 @@
+# Replace with your own address (an A record pointing to your Hetzner server IP).
+db.yourdomain.com {
+	reverse_proxy srh:80
+}
